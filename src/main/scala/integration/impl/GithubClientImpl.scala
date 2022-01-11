@@ -1,33 +1,17 @@
 package integration.impl
 
-import cats.effect.Sync
+import cats.Applicative
 import cats.syntax.all._
-import config.GithubConfig
 import integration.GithubClient
-import org.kohsuke.github._
+import sttp.client3.SttpBackend
 
-import scala.util.control.NonFatal
+class GithubClientImpl[F[_]](httpClient: SttpBackend[F, Any]) extends GithubClient[F] {
 
-class GithubClientImpl[F[_]: Sync](git: GitHub) extends GithubClient[F] {
-
-  val self: F[GHMyself] = Sync[F].blocking(git.getMyself)
-
-  val login: F[String] = for {
-    me <- self
-  } yield me.getLogin
+  override def login: F[String] = ???
 
 }
 object GithubClientImpl {
 
-  def make[F[+_]: Sync](config: GithubConfig): F[GithubClient[F]] =
-    try {
-      val git = new GitHubBuilder()
-        .withAppInstallationToken(config.apiToken.value)
-        .build()
-      new GithubClientImpl[F](git).pure[F]
-    } catch {
-      case NonFatal(exc) =>
-        exc.raiseError[F, GithubClient[F]]
-    }
-
+  def make[F[+_]: Applicative](httpClient: SttpBackend[F, Any]): F[GithubClient[F]] =
+    new GithubClientImpl(httpClient).pure[F]
 }
