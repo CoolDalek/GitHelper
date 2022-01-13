@@ -1,8 +1,10 @@
 import cats.effect.{ExitCode, IO, IOApp}
 import config.DbConfig
+import dao.impl.TokenDaoImpl
 import doobie.util.transactor.Transactor
 import gui.Gui
 import integration.impl.GithubClientImpl
+import model.ApiToken
 import pureconfig.{ConfigObjectSource, ConfigReader, ConfigSource}
 import service.impl.MigrationServiceImpl
 import sttp.client3.asynchttpclient.cats.AsyncHttpClientCatsBackend
@@ -16,7 +18,6 @@ object Main extends IOApp {
   private def loadConfig[T: ConfigReader: ClassTag](path: String): IO[T] = IO {
     configSource.at(path).loadOrThrow[T]
   }
-
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
@@ -32,8 +33,12 @@ object Main extends IOApp {
       migrations <- MigrationServiceImpl.make[IO](xa)
       _ <- if(dbConfig.dropOnStartup) migrations.dropDb else IO.unit
       _ <- migrations.needMigration.ifM(migrations.migrate, IO.unit)
+      tokensDao <- TokenDaoImpl.make[IO](xa)
+      maybeToken <- tokensDao.getToken
       httpClient <- AsyncHttpClientCatsBackend[IO]()
-      _ <- GithubClientImpl.make[IO](httpClient)
+      github <- GithubClientImpl.make[IO](httpClient)
+      profile <- github.profile(maybeToken.get)
+      _ <- IO.println(profile.login)
       _ <- join
       _ <- httpClient.close()
     } yield ExitCode.Success

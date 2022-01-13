@@ -1,7 +1,9 @@
 package integration
 
+import model.{ApiToken, Profile}
+
 trait GithubClient[F[_]] {
 
-  def login: F[String]
+  def profile(token: ApiToken): F[Profile]
 
 }

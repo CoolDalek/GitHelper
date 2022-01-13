@@ -6,33 +6,35 @@ import dao.TokenDao
 import model.ApiToken
 import doobie._
 import doobie.implicits._
+import provider.CryptoProvider
 
-class TokenDaoImpl[F[_]: MonadCancelThrow](xa: Transactor[F]) extends TokenDao[F] {
+class TokenDaoImpl[F[_]: MonadCancelThrow](
+                                            val xa: Transactor[F],
+                                            val cryptoProvider: CryptoProvider[F],
+                                          ) extends TokenDao[F] with EncryptedDao[F] {
 
   override def getToken: F[Option[ApiToken]] =
-    sql"select * from api_tokens"
-      .query[ApiToken]
-      .option
-      .transact(xa)
+    for {
+      maybeToken <- selectOne[ApiToken] {
+        sql"select * from api_tokens"
+      }
+      maybeToken
+    }
 
   override def addToken(apiToken: ApiToken): F[Unit] =
-    sql"insert into api_tokens values $apiToken"
-      .update
-      .run
-      .transact(xa)
-      .void
+    updateWithEncryption(apiToken) { encrypted =>
+      sql"insert into api_tokens values($encrypted)"
+    }
 
   override def removeToken(apiToken: ApiToken): F[Unit] =
-    sql"delete from api_tokens where body = $apiToken"
-      .update
-      .run
-      .transact(xa)
-      .void
+    updateWithEncryption(apiToken) { encrypted =>
+      sql"delete from api_tokens where body = $encrypted"
+    }
 
 }
 object TokenDaoImpl {
 
-  def make[F[+_]: MonadCancelThrow](xa: Transactor[F]): F[TokenDao[F]] =
-    new TokenDaoImpl[F](xa).pure[F]
+  def make[F[+_]: MonadCancelThrow](xa: Transactor[F], cryptoProvider: CryptoProvider[F]): F[TokenDao[F]] =
+    new TokenDaoImpl[F](xa, cryptoProvider).pure[F]
 
 }

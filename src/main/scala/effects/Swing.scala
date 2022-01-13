@@ -10,9 +10,7 @@ trait Swing[F[_]] {
   def onUI[T](thunk: => T): F[T]
 
 }
-object Swing {
-
-  def apply[F[_]: Swing]: Swing[F] = implicitly[Swing[F]]
+object Swing extends SummonerK[Swing] {
 
   private def invokeLater[T](thunk: => T): Unit =
     SwingUtilities.invokeLater(() => thunk)

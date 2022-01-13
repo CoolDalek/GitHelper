@@ -48,7 +48,7 @@ class MigrationServiceImpl[F[_]: MonadCancelThrow](
       maybeVer <- version.transact(xa)
       ver = maybeVer.getOrElse(0)
       _ <- dbVersion.set(ver)
-    } yield ver == actualVersion
+    } yield ver != actualVersion
   }
 
   def updateVersion(old: Int, fresh: Int): F[Unit] = {
