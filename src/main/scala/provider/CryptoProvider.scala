@@ -1,6 +1,6 @@
 package provider
 
-import effects.{PrepareDecription, PrepareEncryption}
+import effects._
 
 trait CryptoProvider[F[_]] {
 
@@ -14,10 +14,10 @@ trait CryptoProvider[F[_]] {
 
   def encryptBytes[T: PrepareEncryption](data: T): F[Array[Byte]]
 
-  def decryptBytes[T: PrepareDecription](data: Array[Byte]): F[T]
+  def decryptBytes[T: PrepareDecryption](data: Array[Byte]): F[T]
 
   def encryptString[T: PrepareEncryption](data: T): F[String]
 
-  def decryptString[T: PrepareDecription](data: String): F[T]
+  def decryptString[T: PrepareDecryption](data: String): F[T]
 
 }

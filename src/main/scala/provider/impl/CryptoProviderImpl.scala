@@ -5,7 +5,7 @@ import cats.effect.kernel.Sync
 import cats.effect.std.Random
 import cats.syntax.all._
 import config.CryptoConfig
-import effects.{PrepareDecription, PrepareEncryption}
+import effects.{PrepareEncryption, PrepareDecryption}
 import provider.CryptoProvider
 import provider.impl.CryptoProviderImpl._
 
@@ -60,9 +60,9 @@ class CryptoProviderImpl[F[_]: MonadThrow](
       val packed = decoder.decode(data)
       val salt = packed.take(SaltLength)
       val iv = new IvParameterSpec(
-        packed.slice(SaltLength, IvLength)
+        packed.slice(SaltLength, DataPosition)
       )
-      val encrypted = packed.drop(SaltLength + IvLength)
+      val encrypted = packed.drop(DataPosition)
       Unpacked(salt, iv, encrypted).pure[F]
     } catch {
       case NonFatal(exc) =>
@@ -84,8 +84,8 @@ class CryptoProviderImpl[F[_]: MonadThrow](
   override def encryptBytes[T: PrepareEncryption](data: T): F[Array[Byte]] =
     encrypt(PrepareEncryption[T].asBytes(data))
 
-  override def decryptBytes[T: PrepareDecription](data: Array[Byte]): F[T] =
-    decrypt(data).map(x => PrepareDecription[T].fromBytes(x))
+  override def decryptBytes[T: PrepareDecryption](data: Array[Byte]): F[T] =
+    decrypt(data).map(x => PrepareDecryption[T].fromBytes(x))
 
   override def encryptString[T: PrepareEncryption](data: T): F[String] = {
     val write = PrepareEncryption[T]
@@ -93,8 +93,8 @@ class CryptoProviderImpl[F[_]: MonadThrow](
     encrypt(string, write.charset)
   }
 
-  override def decryptString[T: PrepareDecription](data: String): F[T] = {
-    val read = PrepareDecription[T]
+  override def decryptString[T: PrepareDecryption](data: String): F[T] = {
+    val read = PrepareDecryption[T]
     decrypt(data, read.charset)
       .map(x => read.fromString(x))
   }
@@ -115,6 +115,8 @@ object CryptoProviderImpl {
   private final val SaltLength = KeyLength / 8 // bytes
 
   private final val IvLength = 16
+
+  private final val DataPosition = SaltLength + IvLength
 
   def make[F[+_]: Sync](config: CryptoConfig): F[CryptoProvider[F]] =
     for {

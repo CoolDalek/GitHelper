@@ -1,6 +1,6 @@
 package effects
 
-trait PrepareDecription[T] {
+trait PrepareDecryption[T] {
 
   def charset: String
 
@@ -9,10 +9,10 @@ trait PrepareDecription[T] {
   def fromBytes(decodedBytes: Array[Byte]): T
 
 }
-object PrepareDecription extends CryptoCompanion[PrepareDecription] {
+object PrepareDecryption extends CryptoCompanion[PrepareDecryption] {
 
-  def fromString[T](charSet: String)(deserialize: String => T): PrepareDecription[T] =
-    new PrepareDecription[T] {
+  def fromString[T](charSet: String)(deserialize: String => T): PrepareDecryption[T] =
+    new PrepareDecryption[T] {
 
       override val charset: String = charSet
 
@@ -22,11 +22,11 @@ object PrepareDecription extends CryptoCompanion[PrepareDecription] {
 
     }
 
-  def fromString[T](deserialize: String => T): PrepareDecription[T] =
+  def fromString[T](deserialize: String => T): PrepareDecryption[T] =
     fromString(Utf8)(deserialize)
 
-  def fromBytes[T](charSet: String)(deserialize: Array[Byte] => T): PrepareDecription[T] =
-    new PrepareDecription[T] {
+  def fromBytes[T](charSet: String)(deserialize: Array[Byte] => T): PrepareDecryption[T] =
+    new PrepareDecryption[T] {
       override val charset: String = charSet
 
       override def fromString(decodedString: String): T = fromBytes(decodedString.getBytes(charset))
@@ -34,7 +34,7 @@ object PrepareDecription extends CryptoCompanion[PrepareDecription] {
       override def fromBytes(decodedBytes: Array[Byte]): T = deserialize(decodedBytes)
     }
 
-  def fromBytes[T](deserialize: Array[Byte] => T): PrepareDecription[T] =
+  def fromBytes[T](deserialize: Array[Byte] => T): PrepareDecryption[T] =
     fromBytes(Utf8)(deserialize)
 
 }

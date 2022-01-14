@@ -1,5 +1,6 @@
 package dao.impl
 
+import cats.data.OptionT
 import cats.effect.MonadCancelThrow
 import cats.syntax.all._
 import doobie._
@@ -15,7 +16,9 @@ trait DoobieDao[F[_]] {
       .transact(xa).void
 
   def selectOne[T: Read](fragment: => Fragment)
-                        (implicit ev: MonadCancelThrow[F]): F[Option[T]] =
-    fragment.query[T].option.transact(xa)
+                        (implicit ev: MonadCancelThrow[F]): OptionT[F, T] =
+    OptionT(
+      fragment.query[T].option.transact(xa)
+    )
 
 }

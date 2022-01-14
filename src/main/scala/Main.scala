@@ -1,10 +1,11 @@
 import cats.effect.{ExitCode, IO, IOApp}
-import config.DbConfig
+import config.{CryptoConfig, DbConfig}
 import dao.impl.TokenDaoImpl
 import doobie.util.transactor.Transactor
 import gui.Gui
 import integration.impl.GithubClientImpl
 import model.ApiToken
+import provider.impl.CryptoProviderImpl
 import pureconfig.{ConfigObjectSource, ConfigReader, ConfigSource}
 import service.impl.MigrationServiceImpl
 import sttp.client3.asynchttpclient.cats.AsyncHttpClientCatsBackend
@@ -30,15 +31,14 @@ object Main extends IOApp {
         user = dbConfig.user,
         pass = dbConfig.password,
       )
+      cryptoConfig <- loadConfig[CryptoConfig]("crypto")
       migrations <- MigrationServiceImpl.make[IO](xa)
       _ <- if(dbConfig.dropOnStartup) migrations.dropDb else IO.unit
       _ <- migrations.needMigration.ifM(migrations.migrate, IO.unit)
-      tokensDao <- TokenDaoImpl.make[IO](xa)
-      maybeToken <- tokensDao.getToken
+      cryptoProvider <- CryptoProviderImpl.make[IO](cryptoConfig)
+      tokensDao <- TokenDaoImpl.make[IO](xa, cryptoProvider)
       httpClient <- AsyncHttpClientCatsBackend[IO]()
       github <- GithubClientImpl.make[IO](httpClient)
-      profile <- github.profile(maybeToken.get)
-      _ <- IO.println(profile.login)
       _ <- join
       _ <- httpClient.close()
     } yield ExitCode.Success

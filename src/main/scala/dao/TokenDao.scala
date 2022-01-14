@@ -1,10 +1,11 @@
 package dao
 
+import cats.data.OptionT
 import model.ApiToken
 
 trait TokenDao[F[_]] {
 
-  def getToken: F[Option[ApiToken]]
+  def getToken: OptionT[F, ApiToken]
 
   def addToken(apiToken: ApiToken): F[Unit]
 
