@@ -1,14 +1,14 @@
+import cats.effect.std.Dispatcher
 import cats.effect.{ExitCode, IO, IOApp}
-import config.{CryptoConfig, DbConfig}
+import config.{CryptoConfig, DbConfig, NotificationConfig}
 import dao.impl.TokenDaoImpl
 import doobie.util.transactor.Transactor
 import gui.Gui
-import integration.impl.GithubClientImpl
-import model.ApiToken
-import provider.impl.CryptoProviderImpl
+import integration.impl._
+import provider.impl._
 import pureconfig.{ConfigObjectSource, ConfigReader, ConfigSource}
-import service.impl.MigrationServiceImpl
-import sttp.client3.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import service.impl._
+import sttp.client3.httpclient.fs2.HttpClientFs2Backend
 
 import scala.reflect.ClassTag
 
@@ -22,8 +22,6 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
-      gui <- Gui.make[IO]
-      join <- gui.start
       dbConfig <- loadConfig[DbConfig]("db")
       xa = Transactor.fromDriverManager[IO](
         driver = dbConfig.driver,
@@ -32,13 +30,23 @@ object Main extends IOApp {
         pass = dbConfig.password,
       )
       cryptoConfig <- loadConfig[CryptoConfig]("crypto")
+      notificationConfig <- loadConfig[NotificationConfig]("notification")
       migrations <- MigrationServiceImpl.make[IO](xa)
       _ <- if(dbConfig.dropOnStartup) migrations.dropDb else IO.unit
       _ <- migrations.needMigration.ifM(migrations.migrate, IO.unit)
       cryptoProvider <- CryptoProviderImpl.make[IO](cryptoConfig)
       tokensDao <- TokenDaoImpl.make[IO](xa, cryptoProvider)
-      httpClient <- AsyncHttpClientCatsBackend[IO]()
+      httpClient <- Dispatcher[IO].use { dispatcher =>
+        HttpClientFs2Backend[IO](dispatcher)
+      }
       github <- GithubClientImpl.make[IO](httpClient)
+      notifications <- NotificationServiceImpl.make[IO](
+        notificationConfig,
+        github,
+        tokensDao,
+      )
+      gui <- Gui.make[IO](notifications)
+      join <- gui.start
       _ <- join
       _ <- httpClient.close()
     } yield ExitCode.Success

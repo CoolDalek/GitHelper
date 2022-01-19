@@ -5,7 +5,7 @@ import cats.effect.kernel.Sync
 import cats.effect.std.Random
 import cats.syntax.all._
 import config.CryptoConfig
-import effects.{PrepareEncryption, PrepareDecryption}
+import effects.{PrepareDecryption, PrepareEncryption}
 import provider.CryptoProvider
 import provider.impl.CryptoProviderImpl._
 

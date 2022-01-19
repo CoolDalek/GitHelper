@@ -30,7 +30,6 @@ object Swing extends SummonerK[Swing] {
         }
       }
     }
-
   }
 
 }

@@ -14,7 +14,8 @@ libraryDependencies ++= Seq(
   "eu.timepit" %% "refined-cats" % "0.9.28",
   "io.monix" %% "newtypes-core" % "0.0.1",
   "com.github.pureconfig" %% "pureconfig-cats" % "0.17.1",
-  "com.softwaremill.sttp.client3" %% "async-http-client-backend-cats" % "3.3.18",
+  "com.softwaremill.sttp.client3" %% "httpclient-backend-fs2" % "3.3.18",
   "com.outr" %% "scribe-slf4j" % "3.6.7",
   "com.lihaoyi" %% "upickle" % "1.4.3",
+  "co.fs2" %% "fs2-core" % "3.2.0",
 )
