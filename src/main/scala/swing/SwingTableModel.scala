@@ -1,9 +1,8 @@
-package model
+package swing
 
 import cats.Show
 import cats.effect.Spawn
 import cats.syntax.all._
-import effects.Swing
 import fs2.{Compiler, Stream}
 
 import javax.swing.table.AbstractTableModel

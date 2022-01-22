@@ -3,12 +3,13 @@ import cats.effect.{ExitCode, IO, IOApp}
 import config.{CryptoConfig, DbConfig, NotificationConfig}
 import dao.impl.TokenDaoImpl
 import doobie.util.transactor.Transactor
-import gui.Gui
+import gui.{MainUI, NotificationScreen, RouterTest0, RouterTest1}
 import integration.impl._
 import provider.impl._
 import pureconfig.{ConfigObjectSource, ConfigReader, ConfigSource}
 import service.impl._
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
+import swing.Router
 
 import scala.reflect.ClassTag
 
@@ -22,6 +23,11 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
+      makeUI <- MainUI.make[IO]
+      (router, join) = makeUI
+      _ <- RouterTest0.make(router)
+      _ <- RouterTest1.make(router)
+      /*
       dbConfig <- loadConfig[DbConfig]("db")
       xa = Transactor.fromDriverManager[IO](
         driver = dbConfig.driver,
@@ -45,10 +51,10 @@ object Main extends IOApp {
         github,
         tokensDao,
       )
-      gui <- Gui.make[IO](notifications)
-      join <- gui.start
+      _ <- NotificationScreen.make(notifications, router)
+      */
       _ <- join
-      _ <- httpClient.close()
+      //_ <- httpClient.close()
     } yield ExitCode.Success
 
 }

@@ -1,4 +1,4 @@
-package model
+package swing
 
 import cats.syntax.all._
 import cats.{Applicative, MonadThrow}

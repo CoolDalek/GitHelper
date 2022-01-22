@@ -17,24 +17,28 @@ class NotificationServiceImpl[F[_]: Temporal](
                                                tokenDao: TokenDao[F],
                                              ) extends NotificationService[F] {
 
+  private def fetchNotifications: F[Seq[Notification]] =
+    for {
+      token <- tokenDao.getToken.getOrElseF {
+        NoTokenProvided.raiseError[F, ApiToken]
+      }
+      repos <- client.repositories(token)
+      notifications = repos.map { repo =>
+        for {
+          pulls <- client.pullRequests(repo, token)
+        } yield Notification(
+          repoName = repo.name,
+          repoUrl = repo.htmlUrl,
+          pullUrls = pulls.map(_.htmlUrl)
+        )
+      }
+      result <- Traverse[Seq].sequence(notifications)
+    } yield result
+
   override def notifications: Stream[F, Seq[Notification]] =
-    Stream.awakeEvery(config.pollingDelay).evalMap { _ =>
-      for {
-        token <- tokenDao.getToken.getOrElseF {
-          NoTokenProvided.raiseError[F, ApiToken]
-        }
-        repos <- client.repositories(token)
-        notifications = repos.map { repo =>
-          for {
-            pulls <- client.pullRequests(repo, token)
-          } yield Notification(
-            repoName = repo.name,
-            repoUrl = repo.htmlUrl,
-            pullUrls = pulls.map(_.htmlUrl)
-          )
-        }
-        result <- Traverse[Seq].sequence(notifications)
-      } yield result
+    Stream.eval(fetchNotifications).append {
+      Stream.awakeEvery(config.pollingDelay)
+        .evalMap(_ => fetchNotifications)
     }
 
 }

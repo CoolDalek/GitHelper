@@ -18,4 +18,5 @@ libraryDependencies ++= Seq(
   "com.outr" %% "scribe-slf4j" % "3.6.7",
   "com.lihaoyi" %% "upickle" % "1.4.3",
   "co.fs2" %% "fs2-core" % "3.2.0",
+  "com.github.dwickern" %% "scala-nameof" % "4.0.0" % "provided",
 )
