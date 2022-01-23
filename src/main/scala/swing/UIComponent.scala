@@ -53,7 +53,7 @@ abstract class UIComponent[F[_]: Swing: Spawn] {
     def casLoop(nullable: F[Unit]): Unit =
       state.get match {
         case current: Initializing =>
-          val handler = if(nullable != null) {
+          val handler = if(nullable == null) {
             makeHandler
           } else nullable
           val updated = current.addHandler(handler)
