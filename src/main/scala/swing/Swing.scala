@@ -46,6 +46,7 @@ object Swing extends SummonerK[Swing] {
             task(callback)
           } catch {
             case NonFatal(exc) =>
+              println(exc)
               callback(Left(exc))
           }
         }
@@ -54,8 +55,9 @@ object Swing extends SummonerK[Swing] {
     override def defer[A](fa: => F[A]): F[A] = derive.defer(fa)
 
     /*
-    * As alternative: Defer[F].defer(Applicative[F].pure(thunk))
+    * As alternative: Defer[F].defer(Functor[F].pure(thunk))
     * Or: Applicative[F].unit.map(_ => thunk)
+    * Or: Functor[F].lift(_ => thunk)
     * */
     override def suspend[T](thunk: => T): F[T] =
       Async[F].delay(thunk)

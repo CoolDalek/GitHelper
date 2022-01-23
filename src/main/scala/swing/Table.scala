@@ -3,7 +3,6 @@ package swing
 import cats.syntax.all._
 import cats.{Applicative, MonadThrow}
 
-import java.util.Objects
 import scala.reflect.ClassTag
 
 trait Table[T] {
@@ -35,7 +34,7 @@ object Table {
 
     protected def getColumnName(i: Int, dict: AnyRef)
                                (get: => String): String =
-      if(Objects.nonNull(dict)) {
+      if(dict != null) {
         if(i < columns) get
         else noColumnWithIndex(i)
       } else {
@@ -137,7 +136,7 @@ object Table {
                                              names: Array[String])
                                             (body: => Table[T]): F[Table[T]] = {
     val validateNames =
-      if(Objects.nonNull(names)) {
+      if(names != null) {
         val correct = names.length == underlying.length
         if(correct) {
           Applicative[F].unit

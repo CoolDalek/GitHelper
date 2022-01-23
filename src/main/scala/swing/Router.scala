@@ -7,7 +7,7 @@ import cats.{Applicative, Defer}
 import swing.Router.Route
 import swing.Screen.ScreenView
 
-import java.util.{Objects, UUID}
+import java.util.UUID
 import javax.swing.JFrame
 import scala.collection.concurrent.TrieMap
 
@@ -78,8 +78,8 @@ object Router {
         empty,
       )
 
-      override def request: F[ScreenView] = {
-        val screenView = for {
+      override def request: F[ScreenView] =
+        for {
           _ <- lock.acquire
           maybeScreen <- view.tryGet
           screen <- maybeScreen match {
@@ -90,8 +90,7 @@ object Router {
           }
           _ <- lock.release
         } yield screen
-        screenView
-      }
+
     }
     object Cell {
 
@@ -111,17 +110,17 @@ object Router {
 
     }
 
-    private val buildMap = TrieMap.empty[String, Cell]
+    private val buildMap = TrieMap.empty[Route, Cell]
 
     private[swing] def requestBuild(route: Route): F[Option[F[ScreenView]]] =
       Defer[F].defer {
-        buildMap.get(route.id) match {
+        buildMap.get(route) match {
           case Some(value) =>
             value match {
               case cell: Uninitialized =>
                 for {
                   _ <- cell.acquire
-                  screen <- buildMap(route.id) match {
+                  screen <- buildMap(route) match {
                     case _: Uninitialized => None.pure[F]
                     case changed: Initialized =>
                       cell.release as Some(changed.value)
@@ -137,11 +136,11 @@ object Router {
 
     private[swing] def commitBuild(route: Route, value: F[ScreenView]): F[Unit] =
       Defer[F].defer {
-        buildMap(route.id) match {
+        buildMap(route) match {
           case cell: Uninitialized =>
             for {
               committed <- cell.commit(value)
-              _ = buildMap.update(route.id, committed)
+              _ = buildMap.update(route, committed)
               _ <- cell.release
             } yield ()
           case _: Initialized =>
@@ -151,18 +150,18 @@ object Router {
 
     private[swing] def dispose(route: Route): F[Unit] =
       Defer[F].defer {
-        buildMap(route.id) match {
+        buildMap(route) match {
           case _: Uninitialized =>
             Applicative[F].unit
           case cached: Initialized =>
             for {
               disposed <- cached.dispose
-            } yield buildMap.update(route.id, disposed)
+            } yield buildMap.update(route, disposed)
         }
       }
 
     def request(route: Route): F[ScreenView] = Defer[F].defer {
-      buildMap.get(route.id) match {
+      buildMap.get(route) match {
         case Some(cell) =>
           cell.request
         case None =>
@@ -191,7 +190,7 @@ object Router {
     private def loop[T](route: Route, recursive: Route => F[T]): F[T] =
       for {
         cell <- Cell()
-        _ = buildMap.putIfAbsent(route.id, cell)
+        _ = buildMap.putIfAbsent(route, cell)
         result <- recursive(route)
       } yield result
 
@@ -199,15 +198,19 @@ object Router {
 
   class Route private[swing]() {
 
-    private[swing] val id: String = UUID.randomUUID().toString
+    private val id: String = UUID.randomUUID().toString
+
+    override def hashCode(): Int = id.hashCode()
 
     override def equals(obj: Any): Boolean =
-      if(Objects.nonNull(obj)) {
+      if(obj != null) {
         obj match {
           case that: Route => that.id == this.id
           case _ => false
         }
       } else false
+
+    override def toString: String = s"Route($id)"
 
   }
 

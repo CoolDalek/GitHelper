@@ -4,7 +4,6 @@ import cats.effect.{Fiber, Spawn}
 import cats.syntax.all._
 import cats.{Applicative, Defer, Traverse}
 
-import java.util.Objects
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
@@ -54,7 +53,7 @@ abstract class UIComponent[F[_]: Swing: Spawn] {
     def casLoop(nullable: F[Unit]): Unit =
       state.get match {
         case current: Initializing =>
-          val handler = if(Objects.isNull(nullable)) {
+          val handler = if(nullable != null) {
             makeHandler
           } else nullable
           val updated = current.addHandler(handler)
