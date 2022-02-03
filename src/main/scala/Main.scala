@@ -27,7 +27,7 @@ object Main extends IOApp {
       (router, join) = makeUI
       _ <- RouterTest0.make(router)
       _ <- RouterTest1.make(router)
-      /*
+
       dbConfig <- loadConfig[DbConfig]("db")
       xa = Transactor.fromDriverManager[IO](
         driver = dbConfig.driver,
@@ -52,9 +52,9 @@ object Main extends IOApp {
         tokensDao,
       )
       _ <- NotificationScreen.make(notifications, router)
-      */
+
       _ <- join
-      //_ <- httpClient.close()
+      _ <- httpClient.close()
     } yield ExitCode.Success
 
 }

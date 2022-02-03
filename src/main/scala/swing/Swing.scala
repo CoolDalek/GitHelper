@@ -15,8 +15,6 @@ trait Swing[F[_]] extends Defer[F] {
 
   def fromUI[T](task: Callback[T] => Unit): F[T]
 
-  def suspend[T](thunk: => T): F[T]
-
 }
 object Swing extends SummonerK[Swing] {
 
@@ -53,14 +51,6 @@ object Swing extends SummonerK[Swing] {
       }
 
     override def defer[A](fa: => F[A]): F[A] = derive.defer(fa)
-
-    /*
-    * As alternative: Defer[F].defer(Functor[F].pure(thunk))
-    * Or: Applicative[F].unit.map(_ => thunk)
-    * Or: Functor[F].lift(_ => thunk)
-    * */
-    override def suspend[T](thunk: => T): F[T] =
-      Async[F].delay(thunk)
 
   }
 

@@ -1,8 +1,8 @@
 package swing
 
-import cats.effect.{Fiber, Spawn}
+import cats.effect.{Deferred, Fiber, Spawn}
 import cats.syntax.all._
-import cats.{Applicative, Defer, Traverse}
+import cats.{Applicative, Defer, Monad, Traverse}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
@@ -30,9 +30,11 @@ abstract class UIComponent[F[_]: Swing: Spawn] {
   private val state = new AtomicReference[State](Initializing.empty)
 
   private[swing] final def prepare: F[Unit] =
-    Swing[F].suspend {
-      state.compareAndSet(Inactive, Initializing.empty)
-    }.void
+    Defer[F].defer {
+      Monad[F].pure(
+        state.compareAndSet(Inactive, Initializing.empty)
+      )
+    }
 
   protected final def actionListener[T: ActionListener](on: T)(action: => F[Unit]): Unit = {
     def makeHandler: F[Unit] = {
@@ -45,7 +47,7 @@ abstract class UIComponent[F[_]: Swing: Spawn] {
       val performAction = setListener >> action
       performAction.onError {
         case NonFatal(exc) =>
-          Swing[F].suspend(println(exc))
+          Monad[F].pure(println(exc))
       }
     }
 
