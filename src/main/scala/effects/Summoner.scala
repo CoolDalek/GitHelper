@@ -1,7 +1,4 @@
 package effects
 
-trait Summoner[Typeclass[_]] {
-
-  def apply[T: Typeclass]: Typeclass[T] = implicitly[Typeclass[T]]
-
-}
+trait Summoner[Typeclass[_]]:
+  inline def apply[T: Typeclass]: Typeclass[T] = summon[Typeclass[T]]

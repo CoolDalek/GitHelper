@@ -1,7 +1,7 @@
 package config
 
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto._
+import pureconfig.generic.derivation.default.*
 
 case class DbConfig(
                      driver: String,
@@ -9,10 +9,4 @@ case class DbConfig(
                      user: String,
                      password: String,
                      dropOnStartup: Boolean,
-                   )
-
-object DbConfig {
-
-  implicit val reader: ConfigReader[DbConfig] = deriveReader[DbConfig]
-
-}
+                   ) derives ConfigReader

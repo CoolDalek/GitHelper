@@ -1,18 +1,18 @@
 package dao.impl
 
 import cats.data.OptionT
-import cats.effect.MonadCancelThrow
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import dao.TokenDao
-import doobie._
-import doobie.implicits._
+import doobie.*
+import doobie.implicits.{*, given}
 import model.ApiToken
 import provider.CryptoProvider
 
 class TokenDaoImpl[F[_]: MonadCancelThrow](
                                             val xa: Transactor[F],
                                             val cryptoProvider: CryptoProvider[F],
-                                          ) extends TokenDao[F] with DoobieDao[F] {
+                                          ) extends TokenDao[F] with DoobieDao[F]:
 
   def encryptedUpdate(token: ApiToken)(sql: String => Fragment): F[Unit] =
     for {
@@ -46,10 +46,9 @@ class TokenDaoImpl[F[_]: MonadCancelThrow](
       sql"delete from api_tokens where body = $encrypted"
     }
 
-}
-object TokenDaoImpl {
+object TokenDaoImpl:
 
   def make[F[+_]: MonadCancelThrow](xa: Transactor[F], cryptoProvider: CryptoProvider[F]): F[TokenDao[F]] =
     new TokenDaoImpl[F](xa, cryptoProvider).pure[F]
 
-}
+end TokenDaoImpl

@@ -3,11 +3,11 @@ package provider.impl
 import cats.MonadThrow
 import cats.effect.kernel.Sync
 import cats.effect.std.Random
-import cats.syntax.all._
+import cats.syntax.all.*
 import config.CryptoConfig
 import effects.{PrepareDecryption, PrepareEncryption}
 import provider.CryptoProvider
-import provider.impl.CryptoProviderImpl._
+import provider.impl.CryptoProviderImpl.*
 
 import java.util.Base64
 import javax.crypto.spec.{IvParameterSpec, PBEKeySpec, SecretKeySpec}
@@ -19,8 +19,8 @@ class CryptoProviderImpl[F[_]: MonadThrow](
                                            random: Random[F],
                                            encoder: Base64.Encoder,
                                            decoder: Base64.Decoder,
-                                         ) extends CryptoProvider[F] {
-  import config._
+                                         ) extends CryptoProvider[F]:
+  import config.*
 
   def generateKey(salt: Array[Byte]): SecretKey = {
     val factory = SecretKeyFactory.getInstance(PBKBF2Algorithm)
@@ -56,7 +56,7 @@ class CryptoProviderImpl[F[_]: MonadThrow](
   case class Unpacked(salt: Array[Byte], iv: IvParameterSpec, encrypted: Array[Byte])
 
   def unpack(data: Array[Byte]): F[Unpacked] =
-    try {
+    try
       val packed = decoder.decode(data)
       val salt = packed.take(SaltLength)
       val iv = new IvParameterSpec(
@@ -64,10 +64,8 @@ class CryptoProviderImpl[F[_]: MonadThrow](
       )
       val encrypted = packed.drop(DataPosition)
       Unpacked(salt, iv, encrypted).pure[F]
-    } catch {
-      case NonFatal(exc) =>
-        exc.raiseError[F, Unpacked]
-    }
+    catch case NonFatal(exc) => exc.raiseError[F, Unpacked]
+  end unpack
 
   def decrypt(data: Array[Byte]): F[Array[Byte]] =
     for {
@@ -76,6 +74,7 @@ class CryptoProviderImpl[F[_]: MonadThrow](
       key = generateKey(unpacked.salt)
       _ = decipher.init(Cipher.DECRYPT_MODE, key, unpacked.iv)
     } yield decipher.doFinal(unpacked.encrypted)
+  end decrypt
 
   override def decrypt(data: String, charset: String): F[String] =
     decrypt(data.getBytes(charset))
@@ -87,36 +86,35 @@ class CryptoProviderImpl[F[_]: MonadThrow](
   override def decryptBytes[T: PrepareDecryption](data: Array[Byte]): F[T] =
     decrypt(data).map(x => PrepareDecryption[T].fromBytes(x))
 
-  override def encryptString[T: PrepareEncryption](data: T): F[String] = {
+  override def encryptString[T: PrepareEncryption](data: T): F[String] =
     val write = PrepareEncryption[T]
     val string = write.asString(data)
     encrypt(string, write.charset)
-  }
+  end encryptString
 
-  override def decryptString[T: PrepareDecryption](data: String): F[T] = {
+  override def decryptString[T: PrepareDecryption](data: String): F[T] =
     val read = PrepareDecryption[T]
     decrypt(data, read.charset)
       .map(x => read.fromString(x))
-  }
+  end decryptString
 
-}
-object CryptoProviderImpl {
+object CryptoProviderImpl:
 
-  private final val AesAlgorithm = "AES"
+  private inline val AesAlgorithm = "AES"
 
-  private final val AesTransformation = s"$AesAlgorithm/CTR/NOPADDING"
+  private inline def AesTransformation = s"$AesAlgorithm/CTR/NOPADDING"
 
-  private final val PBKBF2Algorithm = "PBKDF2WithHmacSHA256"
+  private inline val PBKBF2Algorithm = "PBKDF2WithHmacSHA256"
 
-  private final val KeyIterations = 65536
+  private inline val KeyIterations = 65536
 
-  private final val KeyLength = 256 // bits
+  private inline val KeyLength = 256 // bits
 
-  private final val SaltLength = KeyLength / 8 // bytes
+  private inline val SaltLength = KeyLength / 8 // bytes
 
-  private final val IvLength = 16
+  private inline val IvLength = 16
 
-  private final val DataPosition = SaltLength + IvLength
+  private inline val DataPosition = SaltLength + IvLength
 
   def make[F[+_]: Sync](config: CryptoConfig): F[CryptoProvider[F]] =
     for {
@@ -130,4 +128,4 @@ object CryptoProviderImpl {
       decoder,
     )
 
-}
+end CryptoProviderImpl

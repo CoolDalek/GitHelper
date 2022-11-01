@@ -1,6 +1,6 @@
 package service
 
-trait MigrationService[F[_]] {
+trait MigrationService[F[_]]:
 
   def dropDb: F[Unit]
 
@@ -8,4 +8,4 @@ trait MigrationService[F[_]] {
 
   def migrate: F[Unit]
 
-}
+end MigrationService

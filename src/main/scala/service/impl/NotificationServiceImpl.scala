@@ -1,21 +1,20 @@
 package service.impl
 
-import cats.Traverse
-import cats.effect.Temporal
-import cats.syntax.all._
+import cats.*
+import cats.effect.*
+import cats.syntax.all.*
 import config.NotificationConfig
 import dao.TokenDao
 import fs2.Stream
 import integration.GithubClient
-import model.Exceptions.NoTokenProvided
-import model.{ApiToken, Notification}
+import model.*
 import service.NotificationService
 
 class NotificationServiceImpl[F[_]: Temporal](
                                                config: NotificationConfig,
                                                client: GithubClient[F],
                                                tokenDao: TokenDao[F],
-                                             ) extends NotificationService[F] {
+                                             ) extends NotificationService[F]:
 
   private def fetchNotifications: F[Seq[Notification]] =
     for {
@@ -34,15 +33,19 @@ class NotificationServiceImpl[F[_]: Temporal](
       }
       result <- Traverse[Seq].sequence(notifications)
     } yield result
+  end fetchNotifications
 
-  override def notifications: Stream[F, Seq[Notification]] =
+  override def remote: Stream[F, Seq[Notification]] =
     Stream.eval(fetchNotifications).append {
       Stream.awakeEvery(config.pollingDelay)
         .evalMap(_ => fetchNotifications)
     }
 
-}
-object NotificationServiceImpl {
+  override def local: F[Seq[Notification]] = Seq.empty[Notification].pure[F]
+
+  override def safe(seq: Seq[Notification]): F[Unit] = Applicative[F].unit
+
+object NotificationServiceImpl:
 
   def make[F[+_]: Temporal](
                              config: NotificationConfig,
@@ -51,4 +54,4 @@ object NotificationServiceImpl {
                            ): F[NotificationService[F]] =
     new NotificationServiceImpl[F](config, client, tokenDao).pure[F]
 
-}
+end NotificationServiceImpl

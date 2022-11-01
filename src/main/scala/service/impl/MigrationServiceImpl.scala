@@ -3,37 +3,37 @@ package service.impl
 import cats.Traverse
 import cats.effect.kernel.Ref.Make
 import cats.effect.{MonadCancelThrow, Ref}
-import cats.syntax.all._
-import doobie._
-import doobie.implicits._
+import cats.syntax.all.*
+import doobie.*
+import doobie.implicits.*
 import doobie.util.transactor.Transactor
 import service.MigrationService
 
 class MigrationServiceImpl[F[_]: MonadCancelThrow](
                                                     xa: Transactor[F],
                                                     dbVersion: Ref[F, Int],
-                                                  ) extends MigrationService[F] {
+                                                  ) extends MigrationService[F]:
 
-  def migration(sql: Fragment): F[Unit] =
+  private def migration(sql: Fragment): F[Unit] =
     sql.update.run.transact(xa).void
 
-  val tokenTable =
+  private val tokenTable =
     sql"""create table api_tokens(
          body text primary key
        )"""
 
-  val migrations = Vector(
+  private val migrations = Vector(
     tokenTable,
   )
 
-  val drops = Vector(
+  private val drops = Vector(
     sql"drop table if exists schema_history",
     sql"drop table if exists api_tokens",
   )
 
-  val actualVersion: Int = migrations.length
+  private val actualVersion: Int = migrations.length
 
-  override def needMigration: F[Boolean] = {
+  override def needMigration: F[Boolean] =
     val create = sql"""create table if not exists schema_version(
          version int primary key
        )""".update.run
@@ -49,16 +49,16 @@ class MigrationServiceImpl[F[_]: MonadCancelThrow](
       ver = maybeVer.getOrElse(0)
       _ <- dbVersion.set(ver)
     } yield ver != actualVersion
-  }
+  end needMigration
 
-  def updateVersion(old: Int, fresh: Int): F[Unit] = {
+  private def updateVersion(old: Int, fresh: Int): F[Unit] =
     val delete = sql"""delete from schema_version where version = $old"""
       .update.run
     val insert = sql"""insert into schema_version values($fresh)"""
       .update.run
     val update = delete >> insert
     update.transact(xa).void
-  }
+  end updateVersion
 
   override def migrate: F[Unit] =
     for {
@@ -68,18 +68,18 @@ class MigrationServiceImpl[F[_]: MonadCancelThrow](
       _ <- Traverse[Vector].sequence(queries)
       _ <- updateVersion(version, actualVersion)
     } yield ()
+  end migrate
 
-  def dropDb: F[Unit] = {
+  def dropDb: F[Unit] =
     val script = drops.map(migration)
     Traverse[Vector].sequence(script).void
-  }
+  end dropDb
 
-}
-object MigrationServiceImpl {
+object MigrationServiceImpl:
 
   def make[F[+_]: MonadCancelThrow: Make](xa: Transactor[F]): F[MigrationService[F]] =
     for {
       dbVersion <- Ref.of[F, Int](0)
     } yield new MigrationServiceImpl[F](xa, dbVersion)
 
-}
+end MigrationServiceImpl

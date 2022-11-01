@@ -1,6 +1,6 @@
 package model
 
-import serialization._
+import serialization.{*, given}
 import sttp.model.Uri
 
 case class PullRequest(
@@ -8,6 +8,6 @@ case class PullRequest(
                       )
 object PullRequest {
 
-  implicit val read: Reader[PullRequest] = macroR[PullRequest]
+  given Codec[PullRequest] = deriveCodec[PullRequest]
 
 }

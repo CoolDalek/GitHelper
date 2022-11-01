@@ -1,13 +1,9 @@
 package model
 
-import serialization._
+import serialization.*
 
 case class Profile(
                     login: String,
                   )
-
-object Profile {
-
-  implicit val read: Reader[Profile] = macroR[Profile]
-
-}
+object Profile:
+  given Codec[Profile] = deriveCodec[Profile]

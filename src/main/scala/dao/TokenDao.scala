@@ -3,7 +3,7 @@ package dao
 import cats.data.OptionT
 import model.ApiToken
 
-trait TokenDao[F[_]] {
+trait TokenDao[F[_]]:
 
   def getToken: OptionT[F, ApiToken]
 
@@ -11,4 +11,4 @@ trait TokenDao[F[_]] {
 
   def removeToken(apiToken: ApiToken): F[Unit]
 
-}
+end TokenDao

@@ -1,33 +1,34 @@
 import cats.effect.std.Dispatcher
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.*
 import config.{CryptoConfig, DbConfig, NotificationConfig}
 import dao.impl.TokenDaoImpl
 import doobie.util.transactor.Transactor
-import gui.{MainUI, NotificationScreen, RouterTest0, RouterTest1}
-import integration.impl._
-import provider.impl._
+import gui.*
+import integration.impl.*
+import provider.impl.*
+import pureconfig.error.ConfigReaderException
 import pureconfig.{ConfigObjectSource, ConfigReader, ConfigSource}
-import service.impl._
+import service.impl.*
 import sttp.client3.httpclient.fs2.HttpClientFs2Backend
-import swing.Router
+import swing.{Delayed, DependencyGraph, Router, Dependency}
 
 import scala.reflect.ClassTag
 
-object Main extends IOApp {
+object Main extends IOApp:
 
   private val configSource: ConfigObjectSource = ConfigSource.default
 
-  private def loadConfig[T: ConfigReader: ClassTag](path: String): IO[T] = IO {
-    configSource.at(path).loadOrThrow[T]
-  }
+  private def loadConfig[T: ConfigReader: ClassTag](path: String): IO[T] =
+    IO.fromEither {
+      configSource.at(path)
+        .load[T]
+        .left
+        .map(x => new ConfigReaderException[T](x))
+    }
+  end loadConfig
 
   override def run(args: List[String]): IO[ExitCode] =
     for {
-      makeUI <- MainUI.make[IO]
-      (router, join) = makeUI
-      _ <- RouterTest0.make(router)
-      _ <- RouterTest1.make(router)
-
       dbConfig <- loadConfig[DbConfig]("db")
       xa = Transactor.fromDriverManager[IO](
         driver = dbConfig.driver,
@@ -42,19 +43,32 @@ object Main extends IOApp {
       _ <- migrations.needMigration.ifM(migrations.migrate, IO.unit)
       cryptoProvider <- CryptoProviderImpl.make[IO](cryptoConfig)
       tokensDao <- TokenDaoImpl.make[IO](xa, cryptoProvider)
-      httpClient <- Dispatcher[IO].use { dispatcher =>
-        HttpClientFs2Backend[IO](dispatcher)
-      }
-      github <- GithubClientImpl.make[IO](httpClient)
-      notifications <- NotificationServiceImpl.make[IO](
-        notificationConfig,
-        github,
-        tokensDao,
-      )
-      _ <- NotificationScreen.make(notifications, router)
-
-      _ <- join
-      _ <- httpClient.close()
+      resource = for {
+        httpClient <- HttpClientFs2Backend.resource[IO]()
+        github <- Resource.eval(GithubClientImpl.make[IO](httpClient))
+        notifications <- Resource.eval {
+          NotificationServiceImpl.make[IO](
+            notificationConfig,
+            github,
+            tokensDao,
+          )
+        }
+        router <- Router.make[IO]
+        graph = DependencyGraph.make[IO]
+        given DependencyGraph[IO] = graph
+        dependencies = graph.require[NotificationScreen[IO]]
+          .edge { screen =>
+            val mainUI = MainUI[IO](router, screen)
+            graph.provide(IO.pure("""???"""))
+              .map(_ => mainUI)
+          }
+        window <- dependencies.resolve
+        windowClosing = router.moveToWindow(
+          Delayed.const[IO, MainUI[IO]](window)
+        )
+      } yield windowClosing
+      _ <- resource.use(identity)
     } yield ExitCode.Success
+  end run
 
-}
+end Main

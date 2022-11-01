@@ -1,22 +1,21 @@
 package integration.impl
 
 import cats.MonadThrow
-import cats.syntax.all._
+import cats.syntax.all.*
 import integration.GithubClient
-import model.Exceptions.GithubException
-import model.{ApiToken, Profile, PullRequest, Repository}
-import serialization._
-import sttp.client3._
+import model.*
+import serialization.{*, given}
+import sttp.client3.*
 import sttp.model.{HeaderNames, Uri}
 
 class GithubClientImpl[F[_]: MonadThrow](
                                            httpClient: SttpBackend[F, Any],
                                          ) extends GithubClient[F] {
   
-  private def get[T: Reader](token: ApiToken, uri: Uri): F[T] =
+  private def get[T: Codec](token: ApiToken, uri: Uri): F[T] =
     for {
       response <- basicRequest
-        .header(HeaderNames.Authorization, s"token ${ApiToken.value(token)}")
+        .header(HeaderNames.Authorization, s"token $token")
         .get(uri)
         .send(httpClient)
       body <- response.body

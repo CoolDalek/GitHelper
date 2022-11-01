@@ -1,6 +1,6 @@
 package integration
 
-import model.{ApiToken, Profile, PullRequest, Repository}
+import model.*
 
 trait GithubClient[F[_]] {
 

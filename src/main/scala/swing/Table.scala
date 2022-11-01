@@ -1,11 +1,11 @@
 package swing
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, MonadThrow}
 
 import scala.reflect.ClassTag
 
-trait Table[T] {
+trait Table[T]:
 
   def isEmpty: Boolean = columns == 0
 
@@ -13,11 +13,15 @@ trait Table[T] {
 
   def apply(i: Int, j: Int): T
 
+  def row(i: Int): IArray[T]
+
+  def column(i: Int): IArray[T]
+
   def rows: Int
 
   def columns: Int
 
-  def columnName(i: Int): String = {
+  def columnName(i: Int): String =
     val result = new StringBuilder
     var counter = i
     while(counter >= 0) {
@@ -25,55 +29,58 @@ trait Table[T] {
       counter = counter/26 - 1
     }
     result.reverse.result
-  }
+  end columnName
 
-}
-object Table {
+object Table:
 
-  private trait NamedTable[T] extends Table[T] {
+  private trait NamedTable[T] extends Table[T]:
 
     protected def getColumnName(i: Int, dict: AnyRef)
                                (get: => String): String =
-      if(dict != null) {
+      if(dict != null)
         if(i < columns) get
         else noColumnWithIndex(i)
-      } else {
-        super.columnName(i)
-      }
+      else super.columnName(i)
 
-  }
+  end NamedTable
 
-  private trait HasName[T] extends NamedTable[T] {
+  private trait HasName[T] extends NamedTable[T]:
     def name: String
     override def columnName(i: Int): String =
       getColumnName(i, name)(name)
-  }
+  end HasName
 
-  private trait HasNames[T] extends NamedTable[T] {
-    def names: Array[String]
+  private trait HasNames[T] extends NamedTable[T]:
+    def names: IArray[String]
     override def columnName(i: Int): String =
-      getColumnName(i, names)(names(i))
-  }
+      getColumnName(i, names.asInstanceOf[AnyRef])(names(i))
+  end HasNames
 
-  private class TableImpl[T](
-                              underlying: Array[Array[T]],
-                              val names: Array[String],
-                            )
-    extends HasNames[T] {
+  private class TableImpl[T: ClassTag](
+                                        underlying: IArray[IArray[T]],
+                                        val names: IArray[String],
+                                      ) extends HasNames[T]:
+    
+    override def row(i: Int): IArray[T] =
+      for {
+        column <- underlying
+      } yield column(i)
 
-    def apply(i: Int, j: Int): T =
+    override def column(i: Int): IArray[T] = underlying(i)
+
+    override def apply(i: Int, j: Int): T =
       if(i < columns && j < rows) {
         underlying(i)(j)
       } else noElemWithIndex(i, j)
 
-    def rows: Int =
+    override def rows: Int =
       if(nonEmpty) {
         underlying(0).length
       } else 0
 
-    def columns: Int = underlying.length
+    override def columns: Int = underlying.length
 
-    override def toString: String = {
+    override def toString: String =
       val rows = underlying.map { rows =>
         rows.map { row =>
           s"\n\t\t$row"
@@ -82,37 +89,51 @@ object Table {
       val columns = rows.map(_.mkString("\t(", ";", "\n\t);\n"))
       val table = columns.mkString("(\n", ",\n", ")")
       s"Table$table"
-    }
+    end toString
 
-  }
+  end TableImpl
 
-  private class OneColumn[T](
-                              underlying: Array[T],
-                              val name: String,
-                            ) extends HasName[T] {
+  private class OneColumn[T: ClassTag](
+                                        underlying: IArray[T], 
+                                        val name: String,
+                                      ) extends HasName[T]:
 
     override def apply(i: Int, j: Int): T =
       if(i == 0) underlying(j)
+      else noColumnWithIndex(i)
+    
+    override def row(i: Int): IArray[T] = IArray(underlying(i))
+
+    override def column(i: Int): IArray[T] =
+      if(i == 0) underlying
       else noColumnWithIndex(i)
 
     override def rows: Int = underlying.length
 
     override val columns: Int = 1
 
-    override def toString: String = {
+    override def toString: String =
       val tabulated = underlying.map { elem =>
         s"\t$elem"
       }
       val table = tabulated.mkString("(\n", ";\n", ")")
       s"table$table"
-    }
+    end toString
 
-  }
+  end OneColumn
 
-  private class OneElement[@specialized T](
-                                            underlying: T,
-                                            val name: String,
-                                          ) extends HasName[T] {
+  private class OneElement[T: ClassTag](
+                                         underlying: T,
+                                         val name: String,
+                                       ) extends HasName[T]:
+
+    override def row(i: Int): IArray[T] =
+      if(i == 0) IArray(underlying)
+      else noRowWithIndex(i)
+
+    override def column(i: Int): IArray[T] =
+      if(i == 0) IArray(underlying)
+      else noColumnWithIndex(i)
 
     override def apply(i: Int, j: Int): T =
       if(i < 1 && j < 1) underlying
@@ -124,7 +145,7 @@ object Table {
 
     override def toString: String = s"Table($underlying)"
 
-  }
+  end OneElement
 
   private def noElemWithIndex(i: Int, j: Int): Nothing =
     throw new NoSuchElementException(s"There is no element with index {$i,$j}.")
@@ -132,14 +153,17 @@ object Table {
   private def noColumnWithIndex(i: Int): Nothing =
     throw new NoSuchElementException(s"There is no column with index $i.")
 
-  private def aligned[F[+_] : MonadThrow, T](underlying: Array[Array[T]],
-                                             names: Array[String])
+  private def noRowWithIndex(i: Int): Nothing =
+    throw new NoSuchElementException(s"There is no row with index $i.")
+
+  private def aligned[F[+_] : MonadThrow, T](underlying: IArray[IArray[T]],
+                                             names: IArray[String])
                                             (body: => Table[T]): F[Table[T]] = {
     val validateNames =
-      if(names != null) {
+      if(names ne null) {
         val correct = names.length == underlying.length
         if(correct) {
-          Applicative[F].unit
+          MonadThrow[F].unit
         } else {
           NamesCountException(
             expected = underlying.length,
@@ -147,18 +171,18 @@ object Table {
           ).raiseError[F, Table[T]]
         }
       } else {
-        Applicative[F].unit
+        MonadThrow[F].unit
       }
     val validateAlignment = if(underlying.nonEmpty) {
       val length = underlying.map(_.length)
       val correct = length.tail.forall(_ == length.head)
       if(correct) {
-        Applicative[F].unit
+        MonadThrow[F].unit
       } else {
         TableMustBeAligned.raiseError[F, Table[T]]
       }
     } else {
-      Applicative[F].unit
+      MonadThrow[F].unit
     }
     for {
       _ <- validateNames
@@ -166,14 +190,14 @@ object Table {
     } yield body
   }
 
-  private val NullString = null.asInstanceOf[String]
+  private inline def NullString = null.asInstanceOf[String]
 
-  private val NullStringArray = null.asInstanceOf[Array[String]]
+  private inline def NullStringIArray = null.asInstanceOf[IArray[String]]
 
-  def column[F[+_]: Applicative, T: ClassTag](underlying: Array[T]): F[Table[T]] =
+  def column[F[+_]: Applicative, T: ClassTag](underlying: IArray[T]): F[Table[T]] =
     new OneColumn[T](underlying, NullString).pure[F]
 
-  def column[F[+_]: Applicative, T: ClassTag](underlying: Array[T], columnName: String): F[Table[T]] =
+  def column[F[+_]: Applicative, T: ClassTag](underlying: IArray[T], columnName: String): F[Table[T]] =
     new OneColumn[T](underlying, columnName).pure[F]
 
   def one[F[+_]: Applicative, T: ClassTag](underlying: T): F[Table[T]] =
@@ -182,12 +206,12 @@ object Table {
   def one[F[+_]: Applicative, T: ClassTag](underlying: T, columnName: String): F[Table[T]] =
     new OneElement[T](underlying, columnName).pure[F]
 
-  def apply[F[+_]: MonadThrow, T](underlying: Array[Array[T]]): F[Table[T]] =
-    aligned[F, T](underlying, NullStringArray) {
-      new TableImpl(underlying, NullStringArray)
+  def apply[F[+_]: MonadThrow, T: ClassTag](underlying: IArray[IArray[T]]): F[Table[T]] =
+    aligned[F, T](underlying, NullStringIArray) {
+      new TableImpl(underlying, NullStringIArray)
     }
 
-  def apply[F[+_]: MonadThrow, T](underlying: Array[Array[T]], columnNames: Array[String]): F[Table[T]] =
+  def apply[F[+_]: MonadThrow, T: ClassTag](underlying: IArray[IArray[T]], columnNames: IArray[String]): F[Table[T]] =
     aligned[F, T](underlying, columnNames) {
       new TableImpl(underlying, columnNames)
     }
@@ -199,4 +223,4 @@ object Table {
     s"Names count exception, expected: $expected, real: $real."
   )
 
-}
+end Table

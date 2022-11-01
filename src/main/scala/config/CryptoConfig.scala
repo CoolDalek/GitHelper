@@ -1,13 +1,8 @@
 package config
 
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto._
+import pureconfig.generic.derivation.default.*
 
 case class CryptoConfig(
                          password: String,
-                       )
-object CryptoConfig {
-
-  implicit val reader: ConfigReader[CryptoConfig] = deriveReader[CryptoConfig]
-
-}
+                       ) derives ConfigReader

@@ -1,51 +1,44 @@
 package gui
 
-import cats.Parallel
-import cats.effect.Async
-import cats.syntax.all._
+import cats.*
+import cats.effect.*
+import cats.syntax.all.*
 import model.Notification
 import service.NotificationService
-import sttp.client3.UriContext
-import swing.Router.Route
-import swing.Screen.ScreenCompanion
-import swing._
+import swing.*
 
-import javax.swing.{JScrollPane, JTable}
+import javax.swing.{JComponent, JScrollPane, JTable}
 
-class NotificationScreen[F[+_]: Swing: Async: Parallel](
-                                                         notificationService: NotificationService[F],
-                                                         router: Router[F],
-                                                         route: Route,
-                                                       ) extends StatefulScreen[F](router, route) {
-  override type State = Table[Notification]
-  override type Model = SwingTableModel[F, Notification]
+class NotificationScreen[F[+_]: UIConsumer: Monad](
+                                                    notificationService: NotificationService[F],
+                                                  ) extends Screen, Stateful[F] {
+  override type Model = SwingTableModel[Notification]
+  override type View = JComponent
 
-  override def loadState: F[State] = Table.one[F, Notification](
-    Notification("Fetching", uri"https://github.com/", Seq.empty),
-    "PR's",
-  )
+  override def model: Resource[F, Model] =
+    def unpickle(seq: Seq[Notification]): F[Table[Notification]] =
+      Table.column(IArray.from(seq))
 
-  override def saveState: F[Unit] = ???
+    for {
+      init <- Resource.eval {
+        notificationService.local.flatMap(unpickle)
+      }
+      updates = notificationService.remote
+        .evalMap(unpickle)
+      (model, sub) = SwingTableModel.make(updates, init)
+      _ <- sub.onFinalize {
+        notificationService.safe(
+          model.getTable.column(0)
+        )
+      }
+    } yield model
+  end model
 
-  override def makeModel(state: State): F[Model] = {
-    val dataSource = notificationService.notifications.evalMap { seq =>
-      Table.column[F, Notification](seq.toArray)
-    }
-    SwingTableModel.make[F, Notification](dataSource, state)
-  }
-
-  override protected def view(model: Model): View =
+  override def view(model: Model): View =
     new JScrollPane(
       new JTable(model) {
         setFillsViewportHeight(true)
       }
     )
-
-}
-object NotificationScreen extends ScreenCompanion {
-
-  def make[F[+_]: Swing: Async: Parallel](notificationService: NotificationService[F],
-                                router: Router[F]): F[Unit] =
-    new NotificationScreen(notificationService, router, route).build.void
 
 }

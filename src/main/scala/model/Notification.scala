@@ -8,9 +8,6 @@ case class Notification(
                          repoUrl: Uri,
                          pullUrls: Seq[Uri],
                        )
-object Notification {
-
-  implicit val show: Show[Notification] =
+object Notification:
+  given Show[Notification] =
     (notification: Notification) => s"${notification.repoName}(${notification.pullUrls.length})"
-
-}

@@ -7,21 +7,21 @@ import effects.SummonerK
 import javax.swing.SwingUtilities
 import scala.util.control.NonFatal
 
-trait Swing[F[_]] extends Defer[F] {
+trait Swing[F[_]] extends Defer[F]:
 
-  type Callback[T] = Throwable Either T => Unit
+  type Callback[T] = Either[Throwable, T] => Unit
 
   def onUI[T](thunk: => T): F[T]
 
   def fromUI[T](task: Callback[T] => Unit): F[T]
 
-}
-object Swing extends SummonerK[Swing] {
+object Swing extends SummonerK[Swing]:
 
-  private def invokeLater[T](thunk: => T): Unit =
+  private inline def invokeLater[T](inline thunk: => T): Unit =
     SwingUtilities.invokeLater(() => thunk)
 
-  implicit def asyncSwing[F[_]: Async](implicit derive: Defer[F]): Swing[F] = new Swing[F] {
+  given [F[_]: Async]: Swing[F] with
+
 
     override def onUI[T](thunk: => T): F[T] =
       Async[F].async_[T] { callback =>
@@ -36,6 +36,7 @@ object Swing extends SummonerK[Swing] {
           callback(result)
         }
       }
+    end onUI
 
     override def fromUI[T](task: Callback[T] => Unit): F[T] =
       Async[F].async_[T] { callback =>
@@ -49,9 +50,10 @@ object Swing extends SummonerK[Swing] {
           }
         }
       }
+    end fromUI
 
-    override def defer[A](fa: => F[A]): F[A] = derive.defer(fa)
+    override def defer[A](fa: => F[A]): F[A] = Async[F].defer(fa)
+    
+  end given
 
-  }
-
-}
+end Swing

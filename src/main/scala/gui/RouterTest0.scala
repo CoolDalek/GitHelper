@@ -1,7 +1,7 @@
 package gui
-
+/*
 import cats.effect.Spawn
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Parallel}
 import swing.Screen.ScreenCompanion
 import swing.{Router, StatelessScreen, Swing}
@@ -31,3 +31,4 @@ object RouterTest0 extends ScreenCompanion {
     new RouterTest0(router).build.void
 
 }
+*/
